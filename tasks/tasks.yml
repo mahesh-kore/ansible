@@ -1,0 +1,37 @@
+---
+- name: "Create directory /opt/jenkins"
+  file: path=/opt/jenkins state=directory owner=root group=root mode=0777
+
+- name: "Add user"
+  action: user name={{ cuser }} password={{ cpassword }} update_password=always shell=/bin/bash home=/home/{{ cuser }}
+
+- name: "Install Common Libraries from CentOS mirror"
+  yum: state=present name={{ item }}
+  with_items:
+  - unzip
+  - libselinux-python
+
+- name: Create or delete users on end servers as per user_data
+  action: user name=docker groups=centos state=present
+
+#- name: "Download and extract sonar runner"
+#  unarchive: src=http://repo1.maven.org/maven2/org/codehaus/sonar/runner/sonar-runner-dist/2.4/sonar-runner-dist-2.4.zip dest=/opt copy=no
+
+- name: Gets tarball
+  get_url:
+    url="http://repo1.maven.org/maven2/org/codehaus/sonar/runner/sonar-runner-dist/2.4/sonar-runner-dist-2.4.zip"
+    dest="/opt/"
+  register: new_archive
+
+- name: Unarchive source
+  unarchive:
+    src="/opt/sonar-runner-dist-2.4.zip"
+    dest="/opt/"
+    copy=no
+  when: new_archive|changed
+
+- name: "Edit ssh config"
+  replace: dest=/etc/ssh/sshd_config regexp='PermitEmptyPasswords no' replace='PermitEmptyPasswords yes' backup=yes
+  notify:
+    - restart sshd
+
